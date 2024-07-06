@@ -11,6 +11,9 @@ routerUser.route('/')
 routerUser.route('/login')
     .post(login)
 
+routerUser.route('/me')
+    .get(verifyJwt, login)
+
 routerUser.route('/:id')
     .delete(verifyJwt, remove)
     .put(verifyJwt, update);

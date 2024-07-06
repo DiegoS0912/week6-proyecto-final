@@ -1,44 +1,52 @@
 const catchError = require('../utils/catchError');
 const Purchase = require('../models/Purchase');
+const Cart = require('../models/Cart');
+const Product = require('../models/Product');
+const Category = require('../models/Category');
+const ProductImg = require('../models/ProductImg');
 
 const getAll = catchError(async(req, res) => {
-    const results = await Purchase.findAll();
-    return res.json(results);
+    const userId = req.user.id
+    const result = await Purchase.findAll({
+        where: { userId },
+        include: [
+            {
+                model: Product,
+                attributes: ['title', 'price'],
+                include: [
+                    {
+                        model: Category,
+                        attributes: ['name'],
+                    },
+                    {
+                        model: ProductImg,
+                    }
+                ]
+            }
+        ]
+    })
+    return res.json(result)
 });
 
 const create = catchError(async(req, res) => {
-    const result = await Purchase.create(req.body);
-    return res.status(201).json(result);
+    
+    const userId = req.user.id
+
+    const cart = await Cart.findAll({
+        where: {userId},
+        raw: true,
+        attributes: ['quantity', 'userId', 'productId']
+    })
+    
+    if (!cart) return res.sendStatus(404)
+    const result = await Purchase.bulkCreate(cart)
+    if (!result) return res.sendStatus(404)
+    await Cart.destroy({where: {userId}})
+    return res.status(201).json(result)
 });
 
-const getOne = catchError(async(req, res) => {
-    const { id } = req.params;
-    const result = await Purchase.findByPk(id);
-    if(!result) return res.sendStatus(404);
-    return res.json(result);
-});
-
-const remove = catchError(async(req, res) => {
-    const { id } = req.params;
-    const result = await Purchase.destroy({ where: {id} });
-    if(!result) return res.sendStatus(404);
-    return res.sendStatus(204);
-});
-
-const update = catchError(async(req, res) => {
-    const { id } = req.params;
-    const result = await Purchase.update(
-        req.body,
-        { where: {id}, returning: true }
-    );
-    if(result[0] === 0) return res.sendStatus(404);
-    return res.json(result[1][0]);
-});
 
 module.exports = {
     getAll,
-    create,
-    getOne,
-    remove,
-    update
+    create
 }
